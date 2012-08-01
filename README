@@ -1,0 +1,45 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=4155
+
+DESCRIPTION
+This plugin offers commands and mappings that align only the text to the right
+of the cursor, and keep the text to the left unmodified, unlike the built-in
+:left and :right, which always work on the entire line.
+This is useful e.g. for right-aligning the "-- Author" attribution in a
+fortune, the help tags definitions in this help file, or to left-align a
+comment to a particular column.
+The alignment width defaults to 'textwidth', can be passed as a [count] to the
+mappings, and there are mappings that take the actual width from adjacent
+previous / next lines.
+
+RELATED WORKS
+- The Align plugin (vimscript #294) offers a general-purpose :Align command
+  and many mappings for text alignment along various characters, but those are
+  more specialized for certain syntax fragments and do not consider the
+  current cursor position like this plugin.
+- The Tabular plugin (https://github.com/godlygeek/tabular) is similar to the
+  Align plugin.
+
+
+USAGE
+[width]<Leader>le
+:[range]LeftAlignFromCursor [width]
+                        Left-align the text part right of the cursor to
+                        [width] columns (default 'textwidth' or 80 when
+                        'textwidth' is 0). Cp. :left.
+                        Applies to all lines in [range], based on the current
+                        cursor position.
+
+[count]<Leader>lp       Left-align the text part right of the cursor to the
+[count]<Leader>ln       indent of the [count]'th previous / next line.
+
+
+[width]<Leader>ri
+:[range]RightAlignFromCursor [width]
+                        Right-align the text part right of the cursor to
+                        [width] columns (default 'textwidth' or 80 when
+                        'textwidth' is 0). Cp. :right.
+                        Applies to all lines in [range], based on the current
+                        cursor position.
+
+[count]<Leader>rp       Right-align the text part right of the cursor to the
+[count]<Leader>rn       width of the [count]'th previous / next line.
