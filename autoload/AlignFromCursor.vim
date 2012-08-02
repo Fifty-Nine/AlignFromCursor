@@ -9,6 +9,11 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.10.012	02-Aug-2012	ENH: Do not :retab the entire line (which also
+"				affects leading indent and whitespace after the
+"				area, just render the modified whitespace around
+"				the cursor according to the buffer's indent
+"				settings.
 "   1.00.011	25-Jun-2012	BUG: Do not clobber the default register.
 "	010	15-Jun-2012	Split off autoload script.
 "	001	22-Jul-2006	file creation
@@ -46,6 +51,68 @@ else
 endif
 function! s:IsLineWidthLargerThan( width )
     return ! s:IsLineWidthSmallerThan(a:width + 1)
+endfunction
+function! s:GetWhitespaceAroundCursorScreenColumns()
+    let l:originalCursorPos = getpos('.')
+    if search('^\s*\%#', 'bcn', line('.'))
+	let l:textBeforeCursorScreenColumn = 0
+	normal! 0
+    else
+	if search('\S\s*\%#\s\|\S\s\+\%#\S', 'b', line('.'))
+	    let l:textBeforeCursorScreenColumn = virtcol('.')
+	    normal! l
+	else
+	    let l:textBeforeCursorScreenColumn = 0
+	endif
+    endif
+
+    if search('\%#\s\+', 'ce', line('.'))
+	let l:lastWhitespaceAfterCursorScreenColumn = virtcol('.')
+    else
+	let l:lastWhitespaceAfterCursorScreenColumn = 0
+    endif
+    call setpos('.', l:originalCursorPos)
+
+    return [l:textBeforeCursorScreenColumn, l:lastWhitespaceAfterCursorScreenColumn]
+endfunction
+function! s:RenderedTabWidth( virtcol )
+    let l:overflow = (a:virtcol - 1 + &l:tabstop) % &l:tabstop
+    return a:virtcol + &l:tabstop - l:overflow
+endfunction
+function! s:RetabFromCursor()
+    let l:originalLine = getline('.')
+    let l:originalCursorVirtcol = virtcol('.')
+    let [l:textBeforeCursorScreenColumn, l:lastWhitespaceAfterCursorScreenColumn] = s:GetWhitespaceAroundCursorScreenColumns()
+    if l:lastWhitespaceAfterCursorScreenColumn == 0
+	" There's no whitespace around the cursor, therefore, nothing to do.
+	return
+    endif
+
+    let l:width = l:lastWhitespaceAfterCursorScreenColumn - l:textBeforeCursorScreenColumn
+    if &l:expandtab
+	" Replace the number of screen columns with the same number of spaces.
+	let l:renderedWhitespace = repeat(' ', l:width)
+    else
+	" Replace the number of screen columns with the maximal amount of tabs
+	" that fit into the width, followed by [0..'tabstop'[ spaces to get to the
+	" exact width.
+	let l:screenColumn = l:textBeforeCursorScreenColumn + 1
+	let l:renderedWhitespace = ''
+	while 1
+	    let l:tabScreenColumn = s:RenderedTabWidth(l:screenColumn)
+	    if l:tabScreenColumn <= l:lastWhitespaceAfterCursorScreenColumn + 1
+		let l:renderedWhitespace .= "\t"
+		let l:screenColumn = l:tabScreenColumn
+	    else
+		let l:renderedWhitespace .= repeat(' ', l:lastWhitespaceAfterCursorScreenColumn - l:screenColumn + 1)
+		break
+	    endif
+	endwhile
+    endif
+
+    let l:renderedLine = substitute(l:originalLine, printf('\%%>%dv.*\%%<%dv.', l:textBeforeCursorScreenColumn, (l:lastWhitespaceAfterCursorScreenColumn + 1)), l:renderedWhitespace, '')
+    call setline('.', l:renderedLine)
+    execute 'normal!' l:originalCursorVirtcol . '|'
 endfunction
 
 function! AlignFromCursor#Right( width )
@@ -86,10 +153,9 @@ function! AlignFromCursor#Right( width )
     endif
 
     " Finally, change whitespace to spaces / tab / softtabstop based on buffer
-    " settings. Note: This doesn't just change the just inserted spaces, but the
-    " entire line!
+    " settings.
     if l:didInsert
-	.retab!
+	call s:RetabFromCursor()
     endif
 endfunction
 
@@ -120,9 +186,8 @@ function! AlignFromCursor#Left( width )
     execute 'normal!' l:difference . "i \<Esc>g`["
 
     " Finally, change whitespace to spaces / tab / softtabstop based on buffer
-    " settings. Note: This doesn't just change the just inserted spaces, but the
-    " entire line!
-    .retab!
+    " settings.
+    call s:RetabFromCursor()
 endfunction
 
 function! AlignFromCursor#DoRange( firstLine, lastLine, What, width )
