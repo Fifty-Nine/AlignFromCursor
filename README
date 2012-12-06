@@ -19,27 +19,35 @@ RELATED WORKS
 - The Tabular plugin (https://github.com/godlygeek/tabular) is similar to the
   Align plugin.
 
-
 USAGE
 [width]<Leader>le
 :[range]LeftAlignFromCursor [width]
-                        Left-align the text part right of the cursor to
+                        Left-align the text on and right of the cursor to
                         [width] columns (default 'textwidth' or 80 when
                         'textwidth' is 0). Cp. :left.
                         Applies to all lines in [range], based on the current
                         cursor position.
+                        In visual mode: Applies to the selected text, based on
+                        the leftmost selected column.
 
-[count]<Leader>lp       Left-align the text part right of the cursor to the
-[count]<Leader>ln       indent of the [count]'th previous / next line.
-
+[count]<Leader>lp       Left-align the text on and right of the cursor to the
+[count]<Leader>ln       indent of the [count]'th previous / next visible line.
+                        In visual mode: Left-align the selected text to the
+                        indent of the [count]'th visible line above / below
+                        the visual selection.
 
 [width]<Leader>ri
 :[range]RightAlignFromCursor [width]
-                        Right-align the text part right of the cursor to
+                        Right-align the text on and right of the cursor to
                         [width] columns (default 'textwidth' or 80 when
                         'textwidth' is 0). Cp. :right.
                         Applies to all lines in [range], based on the current
                         cursor position.
+                        In visual mode: Applies to the selected text, based on
+                        the leftmost selected column.
 
-[count]<Leader>rp       Right-align the text part right of the cursor to the
-[count]<Leader>rn       width of the [count]'th previous / next line.
+[count]<Leader>rp       Right-align the text on and right of the cursor to the
+[count]<Leader>rn       width of the [count]'th previous / next visible line.
+                        In visual mode: Right-align the selected text to the
+                        width of the [count]'th visible line above / below
+                        the visual selection.
