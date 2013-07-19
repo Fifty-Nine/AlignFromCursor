@@ -1,10 +1,11 @@
-*AlignFromCursor.txt*   Perform :left / :right only for the text part right of the cursor.
+*AlignFromCursor.txt*   Perform :left / :right only for the text on and right of the cursor.
 
 		     ALIGN FROM CURSOR    by Ingo Karkat
 							 *AlignFromCursor.vim*
 description			|AlignFromCursor-description|
 usage				|AlignFromCursor-usage|
 installation			|AlignFromCursor-installation|
+configuration			|AlignFromCursor-configuration|
 limitations			|AlignFromCursor-limitations|
 known problems			|AlignFromCursor-known-problems|
 todo				|AlignFromCursor-todo|
@@ -34,30 +35,40 @@ RELATED WORKS								     *
 
 ==============================================================================
 USAGE						       *AlignFromCursor-usage*
-					   *<Leader>le* *:LeftAlignFromCursor*
+			    *<Leader>le* *v_<Leader>le* *:LeftAlignFromCursor*
 [width]<Leader>le
 :[range]LeftAlignFromCursor [width]
-			Left-align the text part right of the cursor to
+			Left-align the text on and right of the cursor to
 			[width] columns (default 'textwidth' or 80 when
 			'textwidth' is 0). Cp. |:left|.
 			Applies to all lines in [range], based on the current
 			cursor position.
-						     *<Leader>lp* *<Leader>ln*
-[count]<Leader>lp	Left-align the text part right of the cursor to the
-[count]<Leader>ln	indent of the [count]'th previous / next line.
+			In visual mode: Applies to the selected text, based on
+			the leftmost selected column.
+		       *<Leader>lp* *<Leader>ln* *v_<Leader>lp* *v_<Leader>ln*
+[count]<Leader>lp	Left-align the text on and right of the cursor to the
+[count]<Leader>ln	indent of the [count]'th previous / next visible line.
+			In visual mode: Left-align the selected text to the
+			indent of the [count]'th visible line above / below
+			the visual selection.
 
 
-					  *<Leader>ri* *:RightAlignFromCursor*
+			   *<Leader>ri* *v_<Leader>ri* *:RightAlignFromCursor*
 [width]<Leader>ri
 :[range]RightAlignFromCursor [width]
-			Right-align the text part right of the cursor to
+			Right-align the text on and right of the cursor to
 			[width] columns (default 'textwidth' or 80 when
 			'textwidth' is 0). Cp. |:right|.
 			Applies to all lines in [range], based on the current
 			cursor position.
-						     *<Leader>rp* *<Leader>rn*
-[count]<Leader>rp	Right-align the text part right of the cursor to the
-[count]<Leader>rn	width of the [count]'th previous / next line.
+			In visual mode: Applies to the selected text, based on
+			the leftmost selected column.
+		       *<Leader>rp* *<Leader>rn* *v_<Leader>rp* *v_<Leader>rn*
+[count]<Leader>rp	Right-align the text on and right of the cursor to the
+[count]<Leader>rn	width of the [count]'th previous / next visible line.
+			In visual mode: Right-align the selected text to the
+			width of the [count]'th visible line above / below
+			the visual selection.
 
 ==============================================================================
 INSTALLATION					*AlignFromCursor-installation*
@@ -73,8 +84,32 @@ To uninstall, use the |:RmVimball| command.
 DEPENDENCIES					*AlignFromCursor-dependencies*
 
 - Requires Vim 7.0 or higher.
+- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.004 or
+  higher.
 - repeat.vim (vimscript #2136) plugin (optional)
+- visualrepeat.vim (vimscript #3848) plugin (optional)
 
+==============================================================================
+CONFIGURATION				       *AlignFromCursor-configuration*
+
+For a permanent configuration, put the following commands into your |vimrc|:
+						       *AlignFromCursor-remap*
+If you want to use different mappings, map your keys to the
+<Plug>(Left|Right)Align... mapping targets _before_ sourcing the script (e.g.
+in your |vimrc|): >
+    nmap <silent> <Leader>ri <Plug>RightAlignFromCursor
+    nmap <silent> <Leader>le <Plug>LeftAlignFromCursor
+    xmap <silent> <Leader>ri <Plug>RightAlignFromCursor
+    xmap <silent> <Leader>le <Plug>LeftAlignFromCursor
+    nmap <silent> <Leader>rp <Plug>RightAlignToPreviousLine
+    nmap <silent> <Leader>rn <Plug>RightAlignToNextLine
+    nmap <silent> <Leader>lp <Plug>LeftAlignToPreviousLine
+    nmap <silent> <Leader>ln <Plug>LeftAlignToNextLine
+    xmap <silent> <Leader>rp <Plug>RightAlignToPreviousLine
+    xmap <silent> <Leader>rn <Plug>RightAlignToNextLine
+    xmap <silent> <Leader>lp <Plug>LeftAlignToPreviousLine
+    xmap <silent> <Leader>ln <Plug>LeftAlignToNextLine
+<
 ==============================================================================
 LIMITATIONS					 *AlignFromCursor-limitations*
 
@@ -86,6 +121,24 @@ IDEAS						       *AlignFromCursor-ideas*
 
 ==============================================================================
 HISTORY						     *AlignFromCursor-history*
+
+2.00	19-Jul-2013
+- Use visible lines for the relative [count] in <Leader>lp / <Leader>ln /
+  <Leader>rp / <Leader>rn. This is consistent with other Vim commands and
+  allows benefitting from 'relativenumber'. When addressing a folded line, the
+  indent of the first contained line is used.
+- ENH: Add visual mode <Leader>lp / <Leader>ln / <Leader>rp / <Leader>rn
+  mappings that work on the selection and take the [count]'th above / below
+  line.
+- CHG: Make repeats of the mappings use the previous width instead of just
+  re-applying them at the current cursor position. DWIM.
+- BUG: Don't delete whitespace immediately after the cursor position if the
+  cursor rests on a non-whitespace character. This makes the alignment _after_
+  the cursor position, not _from_ it. (Though this was a nice DWIM feature
+  when on the last character of a word; but it makes it impossible to do an
+  actual align from there, and is inconsistent.)
+- Add dependency to ingo-library (vimscript #4433). *** You need to separately
+  install ingo-library (vimscript #4433) version 1.004 (or higher)! ***
 
 1.12	10-Jan-2013
 Fix slowness of :RightAlignFromCursor in connection with plugins like
@@ -110,7 +163,7 @@ Started development.
 
 ==============================================================================
 Copyright: (C) 2006-2013 Ingo Karkat
-The VIM LICENSE applies to this script; see |copyright|.
+The VIM LICENSE applies to this plugin; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>
 ==============================================================================

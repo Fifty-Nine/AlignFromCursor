@@ -1,7 +1,11 @@
-" AlignFromCursor.vim: Perform :left / :right only for the text part right of the cursor.
+" AlignFromCursor.vim: Perform :left / :right only for the text on and right of the cursor.
 "
 " DEPENDENCIES:
-"   - EchoWithoutScrolling.vim autoload script (only for Vim 7.0 - 7.2)
+"   - ingo/compat.vim autoload script
+"   - ingo/folds.vim autoload script
+"   - ingo/mbyte/virtcol.vim autoload script
+"   - vimscript #2136 repeat.vim autoload script (optional)
+"   - visualrepeat.vim (vimscript #3848) autoload script (optional)
 "
 " Copyright: (C) 2006-2013 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
@@ -9,6 +13,22 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   2.00.016	16-Jul-2013	BUG: Don't delete whitespace immediately after
+"				the cursor position if the cursor rests on a
+"				non-whitespace character. This makes the
+"				alignment _after_ the cursor position, not
+"				_from_ it.
+"   2.00.015	08-Apr-2013	Use visible lines (with the help of
+"				ingo#folds#NextVisibleLine()) for the relative
+"				mappings.
+"				Use ingo#compat#strdisplaywidth() to avoid the
+"				direct dependency to EchoWithoutScrolling.vim.
+"				Refactor s:LineNumFromOffset(),
+"				AlignFromCursor#MappingRelative(), and the
+"				called targets to take separate count and
+"				direction.
+"				ENH: Add visual mode mappings through
+"				AlignFromCursor#VisualMapping().
 "   1.12.014	10-Jan-2013	Fix slowness of :RightAlignFromCursor in
 "				connection with plugins like recover.vim, caused
 "				by the repeated triggers of InsertEnter /
@@ -33,6 +53,8 @@
 "   1.00.011	25-Jun-2012	BUG: Do not clobber the default register.
 "	010	15-Jun-2012	Split off autoload script.
 "	001	22-Jul-2006	file creation
+let s:save_cpo = &cpo
+set cpo&vim
 
 function! s:IsNonWhitespaceAfterCursor()
     return search('\%#\s*\S', 'cn', line('.'))
@@ -41,8 +63,6 @@ function! s:DeleteWhitespaceAroundCursor()
     " ... but only if there's still a non-whitespace after the cursor.
     if search('\%#\s\+\S', 'cn', line('.'))
 	normal! "_diw
-    elseif search('\%#.\s\+\S', 'cn', line('.'))
-	normal! l"_diw
     elseif search('\s\%#\S', 'bn', line('.'))
 	normal! h"_diw
     else
@@ -52,16 +72,10 @@ function! s:DeleteWhitespaceAroundCursor()
     return 1
 endfunction
 if exists('*strdisplaywidth')
-    function! s:GetWidthOfLine( lineNum )
-	return strdisplaywidth(getline(a:lineNum))
-    endfunction
     function! s:IsLineWidthSmallerThan( width )
 	return strdisplaywidth(getline('.')) < a:width
     endfunction
 else
-    function! s:GetWidthOfLine( lineNum )
-	return EchoWithoutScrolling#DetermineVirtColNum(getline(a:lineNum))
-    endfunction
     function! s:IsLineWidthSmallerThan( width )
 	return match(getline('.'), '\%>' . a:width . 'v$') == -1
     endfunction
@@ -214,22 +228,21 @@ function! AlignFromCursor#Left( width )
     call s:RetabFromCursor()
 endfunction
 
-function! AlignFromCursor#DoRange( firstLine, lastLine, What, width )
+function! AlignFromCursor#DoRange( firstLine, lastLine, screenCol, What, ... )
     if a:firstLine == a:lastLine
 	" Commonly, just the current line is processed.
-	return call(a:What, [a:width])
+	return call(a:What, a:000)
     endif
 
-    let l:cursorScreenColumn = virtcol('.')
     for l:line in range(a:firstLine, a:lastLine)
 	execute l:line
-	execute 'normal!' l:cursorScreenColumn . '|'
-	call call(a:What, [a:width])
+	execute 'normal!' a:screenCol . '|'
+	call call(a:What, a:000)
     endfor
 endfunction
 
 
-function! AlignFromCursor#GetTextWidth( width )
+function! AlignFromCursor#GetTextWidth( width, ... )
     let l:width = str2nr(a:width)
     if l:width == 0
 	let l:width = &textwidth
@@ -237,36 +250,104 @@ function! AlignFromCursor#GetTextWidth( width )
 	    let l:width = 80
 	endif
     endif
+
+    if a:0
+	" Store for repeating the mapping.
+	let s:repeatValue = l:width
+    endif
+
     return l:width
 endfunction
 
-function! s:LineNumFromOffset( offset )
-    let l:lineNum = line('.') + a:offset
+function! s:LineNumFromOffset( lnum, count, direction )
+    let l:lineNum = ingo#folds#RelativeWindowLine(a:lnum, a:count, a:direction, -1)
     if l:lineNum < 1 || l:lineNum > line('$')
 	execute "normal! \<C-\>\<C-n>\<Esc>" | " Beep.
 	return -1
     endif
     return l:lineNum
 endfunction
-function! AlignFromCursor#RightToRelativeLine( offset )
-    let l:lineNum = s:LineNumFromOffset(a:offset)
-    if l:lineNum == -1 | return | endif
-    call AlignFromCursor#Right(s:GetWidthOfLine(l:lineNum))
+function! AlignFromCursor#RightToLnum( lnum )
+    call AlignFromCursor#Right(ingo#compat#strdisplaywidth(getline(a:lnum)))
 endfunction
-function! AlignFromCursor#LeftToRelativeLine( offset )
-    let l:lineNum = s:LineNumFromOffset(a:offset)
-    if l:lineNum == -1 | return | endif
-    call AlignFromCursor#Left(indent(l:lineNum) + 1)
+function! AlignFromCursor#RightToRelativeLine( lnum, count, direction )
+    let s:repeatValue = s:LineNumFromOffset(a:lnum, a:count, a:direction)
+    if s:repeatValue == -1 | return | endif
+    call AlignFromCursor#RightToLnum(s:repeatValue)
+endfunction
+function! AlignFromCursor#LeftToLnum( lnum )
+    call AlignFromCursor#Left(indent(a:lnum) + 1)
+endfunction
+function! AlignFromCursor#LeftToRelativeLine( lnum, count, direction )
+    let s:repeatValue = s:LineNumFromOffset(a:lnum, a:count, a:direction)
+    if s:repeatValue == -1 | return | endif
+    call AlignFromCursor#LeftToLnum(s:repeatValue)
 endfunction
 
 
+function! s:Repeat( repeatMapping, repeatCount )
+    silent! call       repeat#set(a:repeatMapping, a:repeatCount)
+
+    " In the repetition of the visual mode mappings, there's no use for a count.
+    silent! call visualrepeat#set(a:repeatMapping, -1)
+endfunction
 function! AlignFromCursor#Mapping( Func, count, repeatMapping )
-    call call(a:Func, [AlignFromCursor#GetTextWidth(a:count)])
-    silent! call repeat#set(a:repeatMapping, a:count)
+    call call(a:Func, [AlignFromCursor#GetTextWidth(a:count, 1)])
+
+    " The count given to the normal mode mapping is for overriding 'textwidth',
+    " but when repeating, the count specifies the number of lines to apply it
+    " to. Therefore, don't store it here.
+    call s:Repeat(a:repeatMapping, 1)
 endfunction
-function! AlignFromCursor#MappingRelative( Func, factor, count, repeatMapping )
-    call call(a:Func, [a:factor * a:count])
-    silent! call repeat#set(a:repeatMapping, a:count)
+function! AlignFromCursor#MappingRelative( Func, lnum, count, direction, repeatMapping )
+    call call(a:Func, [a:lnum, a:count, a:direction])
+
+    " The count given to the normal mode mapping is for selecting the reference
+    " line, but when repeating, the count specifies the number of lines to apply
+    " it to. Therefore, don't store it here.
+    call s:Repeat(a:repeatMapping, 1)
 endfunction
 
+function! s:GetVisualScreenColumn()
+    " Use the start of the blockwise selection, or else align from the beginning
+    " of the lines.
+    return (visualmode() ==# "\<C-v>" ?
+    \   ingo#mbyte#virtcol#GetVirtStartColOfCurrentCharacter(line("'<"), col("'<")) :
+    \   1
+    \)
+endfunction
+function! AlignFromCursor#VisualMapping( What, ... )
+    call call(function('AlignFromCursor#DoRange'), [
+    \   line("'<"), line("'>"), s:GetVisualScreenColumn(),
+    \   a:What
+    \] + a:000[0:-2])
+
+    " When repeating the visual mapping in normal mode, default to the same
+    " number of lines.
+    call s:Repeat(a:000[-1], (line("'>") - line("'<") + 1))
+endfunction
+
+
+let s:repeatValue = 0
+function! AlignFromCursor#RepeatMapping( What, count, repeatMapping )
+    call AlignFromCursor#DoRange(
+    \   line('.'), line('.') + a:count - 1, virtcol('.'),
+    \   a:What, s:repeatValue
+    \)
+
+    call s:Repeat(a:repeatMapping, a:count)
+endfunction
+function! AlignFromCursor#VisualRepeatMapping( What, repeatMapping )
+    call AlignFromCursor#DoRange(
+    \   line("'<"), line("'>"), s:GetVisualScreenColumn(),
+    \   a:What, s:repeatValue
+    \)
+
+    " When repeating the visual mapping in normal mode, default to the same
+    " number of lines.
+    call s:Repeat(a:repeatMapping, (line("'>") - line("'<") + 1))
+endfunction
+
+let &cpo = s:save_cpo
+unlet s:save_cpo
 " vim: set ts=8 sts=4 sw=4 noexpandtab ff=unix fdm=syntax :
