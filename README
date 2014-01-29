@@ -31,9 +31,9 @@ USAGE
                         the leftmost selected column.
 
 [count]<Leader>lp       Left-align the text on and right of the cursor to the
-[count]<Leader>ln       indent of the [count]'th previous / next visible line.
+[count]<Leader>ln       indent of the [count]'th previous / next unfolded line.
                         In visual mode: Left-align the selected text to the
-                        indent of the [count]'th visible line above / below
+                        indent of the [count]'th unfolded line above / below
                         the visual selection.
 
 [width]<Leader>ri
@@ -47,7 +47,7 @@ USAGE
                         the leftmost selected column.
 
 [count]<Leader>rp       Right-align the text on and right of the cursor to the
-[count]<Leader>rn       width of the [count]'th previous / next visible line.
+[count]<Leader>rn       width of the [count]'th previous / next unfolded line.
                         In visual mode: Right-align the selected text to the
-                        width of the [count]'th visible line above / below
+                        width of the [count]'th unfolded line above / below
                         the visual selection.
